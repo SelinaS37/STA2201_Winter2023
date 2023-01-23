@@ -1,0 +1,378 @@
+---
+title: "Lab 2"
+author: "Yaqi Shi, 1003813180"
+output: pdf_document
+date: "2023-01-18"
+---
+
+```{r setup, include=FALSE}
+# knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  error = FALSE, 
+  out.width = "100%",
+  fig.width = 10,
+  fig.height = 6.7, 
+  fig.retina = 3,
+  cache = FALSE)
+```
+
+```{r, echo=FALSE}
+library(opendatatoronto)
+library(tidyverse)
+library(stringr)
+library(skimr) # EDA
+library(visdat) # EDA
+library(janitor)
+library(lubridate)
+library(ggrepel)
+library(tidyverse)
+library(knitr)
+library(ggplot2)
+```
+
+# Lab Exercises
+
+## Q1
+
+1.  Using the `delay_2022` data, plot the five stations with the highest mean delays. Facet the graph by `line`
+
+**Answer**
+
+Since I am doing the lab exercise in a separate file, first I need to build the `delay_2022` data.  
+
+```{r}
+# Based on the lab file to retrieve Data
+all_data <- list_packages(limit = 500)
+res <- list_package_resources("996cfe8d-fb35-40ce-b569-698d51fc683b") 
+res <- res %>% mutate(year = str_extract(name, "202.?"))
+delay_2022_ids <- res %>% filter(year==2022) %>% select(id) %>% pull()
+delay_2022 <- get_resource(delay_2022_ids)
+delay_2022 <- clean_names(delay_2022)
+delay_2022 <- delay_2022 %>% distinct()
+delay_codes <- get_resource("3900e649-f31e-4b79-9f20-4731bbfd94f7")
+delay_data_codebook <- get_resource("ca43ac3d-3940-4315-889b-a9375e7b8aa4")
+
+# Since we are doing filtering in the next step, want to save a unfiltered copy
+delay_2022_orig <- delay_2022
+
+delay_2022 <- delay_2022 %>% filter(line %in% c("BD", "YU", "SHP", "SRT"))
+
+# There is no filtering after this step, mostly joint new information
+delay_2022 <- delay_2022 %>% 
+  left_join(delay_codes %>% rename(code = `SUB RMENU CODE`, code_desc = `CODE DESCRIPTION...3`) %>% select(code, code_desc)) 
+
+delay_2022 <- delay_2022 %>%
+  mutate(code_srt = ifelse(line=="SRT", code, "NA")) %>% 
+  left_join(delay_codes %>% rename(code_srt = `SRT RMENU CODE`, code_desc_srt = `CODE DESCRIPTION...7`) %>% select(code_srt, code_desc_srt))  %>% 
+  mutate(code = ifelse(code_srt=="NA", code, code_srt),
+         code_desc = ifelse(is.na(code_desc_srt), code_desc, code_desc_srt)) %>% 
+  select(-code_srt, -code_desc_srt)
+
+delay_2022 <- delay_2022 %>% 
+  mutate(station_clean = ifelse(str_starts(station, "ST"), word(station, 1,2), word(station, 1)))
+
+delay_2022 <- delay_2022 %>% 
+  mutate(code_red = case_when(
+    str_starts(code_desc, "No") ~ word(code_desc, 1, 2),
+    str_starts(code_desc, "Operator") ~ word(code_desc, 1,2),
+    TRUE ~ word(code_desc,1))
+         )
+
+```
+
+$\;$
+
+Plot the five stations with the highest mean delays. Facet the graph by `line`  
+
+```{r}
+delay_2022 %>%
+  group_by(line, station) %>%
+  summarise(mean_delay = mean(min_delay)) %>%
+  arrange(-mean_delay) %>%
+  slice(1:5) %>%
+  ggplot(aes(x = station,
+             y = mean_delay)) +
+  geom_col() + 
+  facet_wrap(vars(line), 
+             scales = "free_y",
+             nrow = 4) +
+  coord_flip()
+```
+
+
+\newpage
+
+## Q2
+
+2.  Using the `opendatatoronto` package, download the data on mayoral campaign contributions for 2014. Hints:
+    -   find the ID code you need for the package you need by searching for 'campaign' in the `all_data` tibble above
+    -   you will then need to `list_package_resources` to get ID for the data file
+    -   note: the 2014 file you will get from `get_resource` has a bunch of different campaign contributions, so just keep the data that relates to the Mayor election
+
+**Answer**
+
+```{r}
+# Find the ID of the dataset
+all_data <- list_packages(limit = 500)
+res <- list_package_resources("f6651a40-2f52-46fc-9e04-b760c16edd5c")
+campaign2014 <- get_resource("5b230e92-0a22-4a15-9572-0b19cc222985")
+
+# Load the Mayor election dataset
+mayoral_campaign_2014 <- campaign2014$`2_Mayor_Contributions_2014_election.xls`
+
+```
+
+
+$\;$
+
+$\;$
+
+## Q3
+
+3.  Clean up the data format (fixing the parsing issue and standardizing the column names using `janitor`)
+
+**Answer**
+
+```{r}
+# Fix the parsing issue
+mayoral_campaign_2014 <-  row_to_names(mayoral_campaign_2014,1)
+
+# Standardize the column names
+mayoral_campaign_2014 <- clean_names(mayoral_campaign_2014)
+
+# Show the first few lines of the 
+head(mayoral_campaign_2014)
+
+```
+
+
+
+\newpage
+
+
+## Q4
+
+4.  Summarize the variables in the dataset. Are there missing values, and if so, should we be worried about them? Is every variable in the format it should be? If not, create new variable(s) that are in the right format.
+
+**Answer**
+
+```{r}
+# Summarize the dataset
+skim(mayoral_campaign_2014)
+
+# Create new variable in correct format
+mayoral_campaign_2014$contribution_amount_num <- as.numeric(mayoral_campaign_2014$contribution_amount)
+```
+
+In this dataset, there are 13 variables with 10199 observations. There are 6 variables that has missing values and we do not need to worry about them.  
+
+Among those 6 variables, "contributors_address", "president_business_manager" and "authorized_representative" has 10197 missing values, which means that only two observation has value in these variables. The variable "ward" is missing for all 10199 observations. Except for those, the variable "goods_or_service_desc" has 10188 missing values and the variable "relationship_to_candidate" has 10166 missing values. For the variable "relationship_to_candidate", it is reasonable to have missing values as most of the relationship to candidate are unknown. For the variable "goods_or_service_desc", this is reasonable as only non-monetary contribution needs description and there are 10188 monetary contribution which corresponds to the 10188 missing values. Based on the summary, most of the variables are missing for more than 99% of the observations. We don't need to worry about or manipulate those variables as the missing proportion is too much.  
+
+The other 7 variables: "contributors_name", "contributors_postal_code", "contribution_amount", "contribution_type_desc", "contributor_type_desc", "candidate" and "office" do not have any missing value for all 10199 observations. Thus no missing value issue for these 7 variables.  
+
+In terms of format, not every variable in the format it should be. In this dataset, every variable is originally in the character format. Based on the missing value analysis above, we will only discuss the 7 variables that don't have missing value.  
+
+Among the 7 variables, the variable that's in the incorrect formats is "contribution_amount". Since it is an amount variable, we have convert it into numeric and create the new variable "contribution_amount_num".  
+
+$\;$
+
+
+## Q5
+
+5.  Visually explore the distribution of values of the contributions. What contributions are notable outliers? Do they share a similar characteristic(s)? It may be useful to plot the distribution of contributions without these outliers to get a better sense of the majority of the data.
+
+**Answer**
+
+```{r}
+# Distribution of all contribution amount
+ggplot(data = mayoral_campaign_2014) + 
+  geom_histogram(aes(x = contribution_amount_num))
+
+```
+
+Based on the above plot, we can see that the x axis extends to a very large number with the histogram squeeze in the left end of the graph. This is an indication that there are large outliers in the contribution amount data. Now we take a loot at those large amounts.  
+
+```{r}
+outlier <- mayoral_campaign_2014 %>%
+  arrange(.,-contribution_amount_num) %>%
+  select(contributors_name, contribution_amount_num, relationship_to_candidate, contribution_type_desc, contributor_type_desc) %>%
+  slice(1:20)
+
+outlier[1:10,]
+
+outlier[11:20,]
+```
+
+Based on the above table, we can see that there are notable outliers and those outlying contribution are all from the candidates' own contribution.  
+
+Here we show the contribution amount in a descending order, the largest contribution is from Ford, Doug, with the amount being 508225. This is a clear outlier as it is about 6 times the second large contribution. Now we look at the top 10 list and we notice that the contribution amount drops dramatically with the tenth largest amount being 4426. We also look at the 11th to 20th largest contribution amount and we find that it drops in a relatively steady way. Thus it is reasonable to conclude that there are outliers in this dataset and based on the scale of the data, it is more clear to see the distribution of the contribution amount without the ten largest contributions as they are so different from the rests. 
+
+Now we want to see what is common among those top ten contributions. First thing we noticed is that the contributions are all made by the candidates themselves as indicated by the variable "relationship_to_candidate". Another observation is that 7 out of top 10 contributions are made by "Ford, Doug" and "Ford, Rob" with "Ford, Doug" made the most largest contribution. Last but not least, all those 10 contributions are monetary and from individual.  
+
+Here is a distribution of contribution amount removing the ten largest observations in the table above
+
+```{r}
+# The tenth largest amount in the data
+tenth_largest <- outlier[10,"contribution_amount_num"]$contribution_amount_num
+
+mayoral_campaign_2014 %>%
+  filter(contribution_amount_num < tenth_largest) %>%
+  ggplot() +
+  geom_histogram(aes(x = contribution_amount_num))
+
+```
+
+The plot shows more information regarding the distribution of contribution amount as the outliers are removed. We can see that the majority of the contribution are still below or equal to 1000, with the next peak being 2500. Most people choose to contribute between 100 to 300. 
+
+\newpage
+
+
+## Q6
+
+6.  List the top five candidates in each of these categories:
+    -   total contributions
+    -   mean contribution
+    -   number of contributions
+
+**Answer**
+
+```{r}
+# Top 5 Total Contributions
+mayoral_campaign_2014 %>%
+  group_by(candidate) %>% 
+  summarise(Total_Contributon = sum(contribution_amount_num)) %>%
+  arrange(., -Total_Contributon) %>%
+  slice(1:5)
+
+# Top 5 Mean Contributions
+mayoral_campaign_2014 %>%
+  group_by(candidate) %>% 
+  summarise(Mean_Contributon = mean(contribution_amount_num)) %>%
+  arrange(., -Mean_Contributon) %>%
+  slice(1:5)
+
+# Top 5 Number of Contributions
+mayoral_campaign_2014 %>%
+  group_by(candidate) %>% 
+  summarise(Number_of_Contributon = n()) %>%
+  arrange(., -Number_of_Contributon) %>%
+  slice(1:5)
+
+```
+
+
+\newpage
+
+
+## Q7
+
+7.  Repeat 6 but without contributions from the candidates themselves.
+
+**Answer**
+
+```{r}
+# Remove the contribution from the candidate
+mayoral_campaign_2014_remove <- filter(mayoral_campaign_2014, relationship_to_candidate %in% c("Spouse", NA))
+# Top 5 Total Contributions
+mayoral_campaign_2014_remove %>%
+  group_by(candidate) %>% 
+  summarise(Total_Contributon = sum(contribution_amount_num)) %>%
+  arrange(., -Total_Contributon) %>%
+  slice(1:5)
+
+# Top 5 Mean Contributions
+mayoral_campaign_2014_remove %>%
+  group_by(candidate) %>% 
+  summarise(Mean_Contributon = mean(contribution_amount_num)) %>%
+  arrange(., -Mean_Contributon) %>%
+  slice(1:5)
+
+# Top 5 Number of Contributions
+mayoral_campaign_2014_remove %>%
+  group_by(candidate) %>% 
+  summarise(Number_of_Contributon = n()) %>%
+  arrange(., -Number_of_Contributon) %>%
+  slice(1:5)
+```
+
+We only keep the contribution record from people who doesn't have any relationship with the candidate and the spouse of the candidate (who is not the candidate himself or herself).  
+
+
+## Q8
+
+8.  How many contributors gave money to more than one candidate?
+
+**Answer**
+
+```{r}
+contributor_candidate <- mayoral_campaign_2014 %>%
+  group_by(contributors_name, candidate) %>% 
+  summarise(Number_of_Contributon = n()) 
+
+contributor <- contributor_candidate %>%
+  group_by(contributors_name) %>%
+  summarise(Number_of_Candidate = n()) %>%
+  filter(Number_of_Candidate > 1)
+
+nrow(contributor)
+```
+
+There are 184 contributors that gave money to more than one candidate.  
+
+
+$\;$
+
+$\;$
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
