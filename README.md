@@ -10,4 +10,8 @@ I tried to use Quarto, but there's some compliance issue that I cannot render. I
 2023/1/23
 Yaqi - Week 2 lab completed
 
+2023/1/30
+Yaqi - Week 3 lab completed
+
+
 
