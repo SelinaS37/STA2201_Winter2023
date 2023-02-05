@@ -1,0 +1,73 @@
+---
+title: "Lab 4 - Part 2"
+author: "Yaqi Shi, 1003813180"
+output: pdf_document
+date: "2023-02-04"
+---
+
+```{r setup, include=FALSE}
+# knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(
+  echo = TRUE,
+  message = FALSE,
+  warning = FALSE,
+  error = FALSE, 
+  out.width = "100%",
+  fig.width = 10,
+  fig.height = 6.7, 
+  fig.retina = 3,
+  cache = FALSE)
+```
+
+```{r, echo=FALSE}
+library(tidyverse)
+library(stringr)
+library(janitor)
+library(lubridate)
+library(ggrepel)
+library(tidyverse)
+library(knitr)
+library(ggplot2)
+library(rvest)
+```
+
+This file contains the solution for Question 4 only. 
+
+# Question 4: Install rstan and brms
+
+We will be using the packages `rstan` and `brms` from next week. Please install these. Here's some instructions:
+
+- https://github.com/paul-buerkner/brms
+- https://github.com/stan-dev/rstan/wiki/RStan-Getting-Started
+
+In most cases it will be straightforward and may not need much more than `install.packages()`, but you might run into issues. Every Stan update seems to cause problems for different OS.
+
+To make sure it works, run the following code:
+
+```{r, echo=FALSE}
+library(brms)
+
+x <- rnorm(100)
+y <- 1 + 2*x + rnorm(100)
+d <- tibble(x = x, y= y)
+
+mod <- brm(y~x, data = d)
+summary(mod)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
