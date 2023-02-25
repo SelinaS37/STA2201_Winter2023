@@ -20,7 +20,8 @@ Yaqi - Week 4 lab completed
 Yaqi - Week 5 lab completed
 
 
-
+2023/2/24
+Yaqi - Week 6 lab completed: I have a problem compiling into pdf when I load large stan output file [I guess R dont like otput with 100+MB similar as Github :( ], thus I have it compile it into html. The pdf in the folder is printed from the html thus it looks a bit weird. I would recommend looking at the html version of the result. Sorry for the inconvenience.
 
 
 
