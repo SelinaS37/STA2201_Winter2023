@@ -28,3 +28,9 @@ Yaqi - Week 6 lab completed: I have a problem compiling into pdf when I load lar
 Yaqi - Lab 9 and 8 are all completed
 
 
+2023/3/26
+Yaqi - Lab 10 completed
+
+
+
+
